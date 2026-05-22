@@ -85,6 +85,58 @@ We introduce a new benchmark to rigorously evaluate geometry prediction models o
 
 ### 📦 Installation
 
+We recommend [**pixi**](https://pixi.sh) for a reproducible, single-CUDA-stack install. Pixi creates a per-project conda env that pulls PyTorch, the CUDA toolkit (including `nvcc`), cuDNN, and NCCL from conda-forge — all built against the same CUDA version — with no pip-side `nvidia-*-cuXX` duplication. The committed `pixi.toml` + `pixi.lock` reproduces the env across machines.
+
+#### Recommended: pixi
+
+**Prerequisites**
+
+- Linux x86_64 with an NVIDIA driver supporting CUDA 13.0+ (verify with `nvidia-smi`; the top-right "CUDA Version" must be ≥ 13.0).
+- Pixi installed: `curl -fsSL https://pixi.sh/install.sh | bash` (see [pixi docs](https://pixi.sh/latest/installation/) for alternatives).
+
+**Target GPU**
+
+`pixi.toml` ships with `TORCH_CUDA_ARCH_LIST = "12.0+PTX"`, which compiles CUDA kernels for **RTX 5090 / Blackwell client (sm_120)** only. Edit `pixi.toml` to match your GPU **before** running `pixi install`:
+
+| GPU family                     | Set `TORCH_CUDA_ARCH_LIST` to |
+|--------------------------------|-------------------------------|
+| Blackwell client (RTX 5090/5080/5070) | `"12.0+PTX"`           |
+| Hopper (H100/H200/GH200)              | `"9.0+PTX"`            |
+| Ada Lovelace (RTX 4090/4080/L40)      | `"8.9+PTX"`            |
+| Ampere client (RTX 3090/3080)         | `"8.6+PTX"`            |
+| Ampere DC (A100)                      | `"8.0+PTX"`            |
+
+To target multiple GPUs in one build, separate with `;` (longer compile, larger binaries): `"8.6;8.9;9.0;12.0+PTX"`.
+
+**Install**
+
+```bash
+# 1. Materialize the env from pixi.toml + pixi.lock (~5 GB download on first run)
+pixi install
+
+# 2. Build gsplat against the env's nvcc + torch headers (~5 min compile)
+pixi run pip install --no-build-isolation --no-deps \
+    "git+https://github.com/nerfstudio-project/gsplat.git@0b4dddf04cb687367602c01196913cde6a743d70"
+
+# 3. Install Depth-Anything-3 itself + pure-Python deps
+#    (pip respects the conda-installed torch/xformers; --no-build-isolation
+#     keeps any source-built deps using the env's nvcc)
+pixi run pip install --no-build-isolation -e ".[app]"   # or -e .  for headless
+
+# 4. Verify
+pixi run da3 --help
+pixi run python -c "import torch, gsplat; \
+    print(torch.__version__, torch.version.cuda, torch.cuda.get_device_name(0))"
+```
+
+The `--no-deps` on gsplat is critical: it prevents pip from resolving gsplat's `torch` dep against PyPI and overwriting the conda-installed PyTorch (which would re-introduce the `nvidia-*-cu12` wheel duplication this setup avoids).
+
+Everything you run inside `pixi run …` (or `pixi shell`) sees CUDA 13.0, PyTorch 2.10, `nvcc`, and `CUDA_HOME` correctly wired up.
+
+#### Alternative: pip (system CUDA required)
+
+If you already have a system CUDA toolkit whose major version matches PyTorch's wheel (e.g. CUDA 12.8 + `torch>=2 --index-url https://download.pytorch.org/whl/cu128`), the upstream pip path also works:
+
 ```bash
 pip install xformers torch\>=2 torchvision
 pip install -e . # Basic
@@ -92,6 +144,8 @@ pip install --no-build-isolation git+https://github.com/nerfstudio-project/gspla
 pip install -e ".[app]" # Gradio, python>=3.10
 pip install -e ".[all]" # ALL
 ```
+
+Note: pip's torch wheels bundle the CUDA *runtime* libraries but **not** a usable `nvcc` — only `ptxas`. Source-built CUDA extensions (gsplat, and anything else that compiles `.cu` files) need a matching system `nvcc`; if yours is the wrong major version, use the pixi path above.
 
 For detailed model information, please refer to the [Model Cards](#-model-cards) section below.
 

@@ -1,0 +1,32 @@
+[workspace]
+name = "depth-anything-3"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+version = "0.0.0"
+
+# Driver supports CUDA 13.0 (RTX 5090 / Blackwell sm_120, driver 580.x)
+[system-requirements]
+cuda = "13.0"
+
+[dependencies]
+python = "3.11.*"
+pip = "*"
+
+# Single CUDA stack from conda-forge — runtime + toolkit + nvcc all 13.0
+cuda-version = "13.0.*"
+cuda = "*"
+gxx_linux-64 = "*"
+
+# PyTorch + ecosystem built against conda-forge's CUDA 13.0
+pytorch     = { version = ">=2.10,<2.11", build = "cuda130*" }
+torchvision = { build = "cuda130*" }
+xformers    = { build = "cuda_130*" }
+
+# gsplat runtime deps (gsplat itself is installed via pip after env materializes)
+ninja = "*"
+rich = ">=12"
+jaxtyping = "*"
+
+[activation.env]
+TORCH_CUDA_ARCH_LIST = "12.0+PTX"   # RTX 5090 Blackwell
+CUDA_HOME = "$CONDA_PREFIX"
