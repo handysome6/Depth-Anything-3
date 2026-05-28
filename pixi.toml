@@ -27,6 +27,10 @@ ninja = "*"
 rich = ">=12"
 jaxtyping = "*"
 
+# build backend deps needed for `pip install -e .`
+hatchling = "*"
+editables = "*"
+
 [activation.env]
 TORCH_CUDA_ARCH_LIST = "12.0+PTX"   # RTX 5090 Blackwell
 CUDA_HOME = "$CONDA_PREFIX"
